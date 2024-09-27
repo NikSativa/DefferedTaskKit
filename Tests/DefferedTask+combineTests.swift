@@ -6,16 +6,16 @@ import XCTest
 
 final class DefferedTask_combineTests: XCTestCase {
     func test_combine_list() {
-        var actual: [Int]!
+        let actual: SendableResult<[Int]> = .init()
         DefferedTask.combine(DefferedTask<Int>(result: 1), DefferedTask<Int>(result: 2), DefferedTask<Int>(result: 3))
             .onComplete { result in
-                actual = result
+                actual.value = result
             }
-        XCTAssertEqual(actual, [1, 2, 3])
+        XCTAssertEqual(actual.value, [1, 2, 3])
     }
 
     func test_combine_array() {
-        var actual: [Int]!
+        let actual: SendableResult<[Int]> = .init()
         let tasks: [DefferedTask<Int>] = [
             .init(result: 1),
             .init(result: 2),
@@ -23,13 +23,13 @@ final class DefferedTask_combineTests: XCTestCase {
         ]
         DefferedTask.combine(tasks)
             .onComplete { result in
-                actual = result
+                actual.value = result
             }
-        XCTAssertEqual(actual, [1, 2, 3])
+        XCTAssertEqual(actual.value, [1, 2, 3])
     }
 
     func test_combine_array2() {
-        var actual: [Int]!
+        let actual: SendableResult<[Int]> = .init()
         let tasks: [DefferedTask<Int>] = [
             .init(result: 1),
             .init(result: 2),
@@ -37,40 +37,40 @@ final class DefferedTask_combineTests: XCTestCase {
         ]
         tasks.combine()
             .onComplete { result in
-                actual = result
+                actual.value = result
             }
-        XCTAssertEqual(actual, [1, 2, 3])
+        XCTAssertEqual(actual.value, [1, 2, 3])
     }
 
     func test_combine_empty_array() {
-        var actual: [Int]!
+        let actual: SendableResult<[Int]> = .init()
         let tasks: [DefferedTask<Int>] = []
         DefferedTask.combine(tasks)
             .onComplete { result in
-                actual = result
+                actual.value = result
             }
-        XCTAssertEqual(actual, [])
+        XCTAssertEqual(actual.value, [])
     }
 
     func test_combineSuccess() {
-        var actual: (lhs: Int, rhs: String)!
+        let actual: SendableResult<(lhs: Int, rhs: String)> = .init()
         DefferedResult<Int, TestError>.success(1)
             .combineSuccess(with: .success("2"))
             .recover(with: (2, "3"))
             .onComplete { result in
-                actual = result
+                actual.value = result
             }
-        XCTAssertEqualAny(actual, (1, "2"))
+        XCTAssertEqualAny(actual.value, (1, "2"))
     }
 
     func test_combineError() {
-        var actual: (lhs: Int, rhs: String)!
+        let actual: SendableResult<(lhs: Int, rhs: String)> = .init()
         DefferedResult<Int, TestError>.success(1)
             .combineSuccess(with: .failure(.anyError1))
             .recover(with: (2, "3"))
             .onComplete { result in
-                actual = result
+                actual.value = result
             }
-        XCTAssertEqualAny(actual, (2, "3"))
+        XCTAssertEqualAny(actual.value, (2, "3"))
     }
 }

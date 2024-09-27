@@ -29,7 +29,6 @@ final class DefferedTask_syncTests: XCTestCase {
         XCTAssertEqual(actual, .failure(.anyError1))
     }
 
-    #if (os(macOS) || os(iOS) || os(visionOS)) && (arch(x86_64) || arch(arm64))
     func test_throws_assertion() {
         let subject = DefferedResult<[Int], TestError>(success: [1, 2, 3])
         XCTAssertThrowsAssertion {
@@ -39,5 +38,4 @@ final class DefferedTask_syncTests: XCTestCase {
             XCTAssertEqual(actual, .success([1, 2, 3]))
         }
     }
-    #endif
 }

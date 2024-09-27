@@ -5,6 +5,42 @@ private let defaultScheduleQueue: Queueable = Queue.custom(label: "PollingTask",
                                                            qos: .utility,
                                                            attributes: .concurrent)
 
+#if swift(>=6.0)
+public final class PollingTask<ResultType: Sendable>: @unchecked Sendable {
+    private let generator: () -> DefferedTask<ResultType>
+    private var cached: DefferedTask<ResultType>?
+    private var isCanceled: Bool = false
+
+    private let scheduleQueue: Queueable
+
+    private let idleTimeInterval: TimeInterval
+    private let shouldRepeat: (ResultType) -> Bool
+    private let response: (ResultType) -> Void
+
+    private let timestamp: TimeInterval
+    private let minimumWaitingTime: TimeInterval?
+    private let retryCount: Int
+
+    public required init(scheduleQueue: Queueable? = nil,
+                         idleTimeInterval: TimeInterval,
+                         retryCount: Int,
+                         minimumWaitingTime: TimeInterval? = nil,
+                         generator: @escaping () -> DefferedTask<ResultType>,
+                         shouldRepeat: @escaping (ResultType) -> Bool = { _ in false },
+                         response: @escaping (ResultType) -> Void = { _ in }) {
+        assert(retryCount > 1, "do you really need polling? seems like `retryCount <= 1` is ignoring polling")
+
+        self.scheduleQueue = scheduleQueue ?? defaultScheduleQueue
+        self.generator = generator
+        self.idleTimeInterval = idleTimeInterval
+        self.shouldRepeat = shouldRepeat
+        self.retryCount = max(1, retryCount)
+        self.minimumWaitingTime = minimumWaitingTime
+        self.response = response
+        self.timestamp = Self.timestamp()
+    }
+}
+#else
 public final class PollingTask<ResultType> {
     private let generator: () -> DefferedTask<ResultType>
     private var cached: DefferedTask<ResultType>?
@@ -38,8 +74,11 @@ public final class PollingTask<ResultType> {
         self.response = response
         self.timestamp = Self.timestamp()
     }
+}
+#endif
 
-    public func start() -> DefferedTask<ResultType> {
+public extension PollingTask {
+    func start() -> DefferedTask<ResultType> {
         return .init { actual in
             self.startPolling(actual, retryCount: self.retryCount)
         } onDeinit: {

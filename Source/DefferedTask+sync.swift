@@ -16,12 +16,12 @@ public func sync<T>(_ callback: DefferedTask<T>,
                     seconds: Double? = nil,
                     timeoutResult timeout: () -> T) -> T {
     let group = DispatchGroup()
-    var result: T!
+    let result: ResultHolder<T> = .init()
 
     group.enter()
     callback.strongify()
-        .onComplete {
-            result = $0
+        .onComplete { [result] in
+            result.value = $0
             group.leave()
         }
 
@@ -33,11 +33,21 @@ public func sync<T>(_ callback: DefferedTask<T>,
         case .success:
             break
         case .timedOut:
-            result = timeout()
+            result.value = timeout()
         }
     } else {
         group.wait()
     }
 
-    return result
+    return result.value
 }
+
+#if swift(>=6.0)
+private final class ResultHolder<T>: @unchecked Sendable {
+    var value: T!
+}
+#else
+private final class ResultHolder<T> {
+    var value: T!
+}
+#endif

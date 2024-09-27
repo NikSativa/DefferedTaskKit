@@ -6,20 +6,19 @@ import XCTest
 
 final class DefferedTask_ArrayTests: XCTestCase {
     func test_filterNils() {
-        var actual: [Int] = []
-
+        let actual: SendableResult<[Int]> = .init(value: [])
         DefferedTask<[Int?]>(result: [nil, 1, nil, 2, nil, 3, nil])
             .filterNils()
             .onComplete { result in
-                actual = result
+                actual.value = result
             }
-        XCTAssertEqual(actual, [1, 2, 3])
+        XCTAssertEqual(actual.value, [1, 2, 3])
 
         DefferedResult<[Int?], TestError>(success: [nil, 3, nil, 2, nil, 1, nil])
             .filterNils()
             .onComplete { result in
-                actual = try! result.get()
+                actual.value = try! result.get()
             }
-        XCTAssertEqual(actual, [3, 2, 1])
+        XCTAssertEqual(actual.value, [3, 2, 1])
     }
 }

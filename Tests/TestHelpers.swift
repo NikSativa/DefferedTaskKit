@@ -29,3 +29,21 @@ enum TestError: Swift.Error, Equatable {
 enum TestError2: Swift.Error, Equatable {
     case anyError
 }
+
+#if swift(>=6.0)
+final class SendableResult<T>: @unchecked Sendable {
+    var value: T!
+
+    init(value: T! = nil) {
+        self.value = value
+    }
+}
+#else
+final class SendableResult<T> {
+    var value: T!
+
+    init(value: T! = nil) {
+        self.value = value
+    }
+}
+#endif

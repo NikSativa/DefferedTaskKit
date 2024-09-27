@@ -3,6 +3,26 @@ import Threading
 
 public typealias PendingResult<Response, Error: Swift.Error> = PendingTask<Result<Response, Error>>
 
+#if swift(>=6.0)
+public class PendingTask<ResultType: Sendable>: @unchecked Sendable {
+    public typealias DefferedTask = DefferedTaskKit.DefferedTask<ResultType>
+    public typealias ServiceClosure = DefferedTask.TaskClosure
+    public typealias Completion = DefferedTask.Completion
+
+    private var mutex: Mutexing = Mutex.pthread(.recursive)
+    private var cached: DefferedTask?
+
+    private var beforeCallback: Completion?
+    private var cachedCallback: Completion?
+    private var afterCallback: Completion?
+
+    public var isPending: Bool {
+        return cached != nil
+    }
+
+    public init() {}
+}
+#else
 public class PendingTask<ResultType> {
     public typealias DefferedTask = DefferedTaskKit.DefferedTask<ResultType>
     public typealias ServiceClosure = DefferedTask.TaskClosure
@@ -20,16 +40,19 @@ public class PendingTask<ResultType> {
     }
 
     public init() {}
+}
+#endif
 
-    public func current(_ closure: @escaping ServiceClosure) -> DefferedTask {
+public extension PendingTask {
+    func current(_ closure: @escaping ServiceClosure) -> DefferedTask {
         return current(with: .init(execute: closure))
     }
 
-    public func current(with closure: @autoclosure () -> DefferedTask) -> DefferedTask {
+    func current(with closure: @autoclosure () -> DefferedTask) -> DefferedTask {
         return current(closure)
     }
 
-    public func current(_ closure: () -> DefferedTask) -> DefferedTask {
+    func current(_ closure: () -> DefferedTask) -> DefferedTask {
         return mutex.sync {
             let loacalCached: DefferedTask = cached ?? closure()
             return .init(execute: { [weak self, loacalCached] actual in
@@ -73,21 +96,21 @@ public class PendingTask<ResultType> {
         }
     }
 
-    public func restart(_ closure: @escaping ServiceClosure) -> DefferedTask {
+    func restart(_ closure: @escaping ServiceClosure) -> DefferedTask {
         return restart(with: .init(execute: closure))
     }
 
-    public func restart(with closure: @autoclosure () -> DefferedTask) -> DefferedTask {
+    func restart(with closure: @autoclosure () -> DefferedTask) -> DefferedTask {
         return restart(closure)
     }
 
-    public func restart(_ closure: () -> DefferedTask) -> DefferedTask {
+    func restart(_ closure: () -> DefferedTask) -> DefferedTask {
         cached = nil
         return current(closure)
     }
 
     @discardableResult
-    public func afterComplete(_ callback: @escaping Completion) -> Self {
+    func afterComplete(_ callback: @escaping Completion) -> Self {
         mutex.sync {
             let originalCallback = afterCallback
             afterCallback = { result in
@@ -99,7 +122,7 @@ public class PendingTask<ResultType> {
     }
 
     @discardableResult
-    public func beforeComplete(_ callback: @escaping Completion) -> Self {
+    func beforeComplete(_ callback: @escaping Completion) -> Self {
         mutex.sync {
             let originalCallback = beforeCallback
             beforeCallback = { result in

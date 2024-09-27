@@ -6,7 +6,7 @@ import Threading
 import XCTest
 
 final class DefferedTaskTests: XCTestCase {
-    private static let timeout: TimeInterval = 0.2
+    private static let timeout: TimeInterval = 0.5
 
     private enum Value: Equatable, SpryEquatable {
         case idle
@@ -15,24 +15,24 @@ final class DefferedTaskTests: XCTestCase {
     }
 
     func test_strongify_both_on_same_thread() {
-        var started = 0
-        var stopped = 0
+        let started: SendableResult<Int> = .init(value: 0)
+        let stopped: SendableResult<Int> = .init(value: 0)
 
-        var beforeCompleted: [Value] = []
-        var completed2: [Int] = []
-        var deferredCompleted: [Value] = []
+        let beforeCompleted: SendableResult<[Value]> = .init(value: [])
+        let completed2: SendableResult<[Int]> = .init(value: [])
+        let deferredCompleted: SendableResult<[Value]> = .init(value: [])
 
-        var subject: DefferedTask<Value>! = .init { completion in
-            started += 1
+        var subject: DefferedTask<Value>! = .init { [started] completion in
+            started.value += 1
             completion(.correct)
-        } onDeinit: {
-            stopped += 1
+        } onDeinit: { [stopped] in
+            stopped.value += 1
         }
-        .beforeComplete { result in
-            beforeCompleted.append(result)
+        .beforeComplete { [beforeCompleted] result in
+            beforeCompleted.value.append(result)
         }
-        .afterComplete { result in
-            deferredCompleted.append(result)
+        .afterComplete { [deferredCompleted] result in
+            deferredCompleted.value.append(result)
         }
         .set(userInfo: "subject")
 
@@ -40,48 +40,48 @@ final class DefferedTaskTests: XCTestCase {
             return 1
         }
         intSubject.set(userInfo: "intSubject")
-            .onComplete {
-                completed2.append($0)
+            .onComplete { [completed2] in
+                completed2.value.append($0)
             }
 
-        XCTAssertEqual(started, 1)
-        XCTAssertEqual(stopped, 0)
+        XCTAssertEqual(started.value, 1)
+        XCTAssertEqual(stopped.value, 0)
 
-        XCTAssertEqual(beforeCompleted, [.correct])
-        XCTAssertEqual(completed2, [1])
-        XCTAssertEqual(deferredCompleted, [.correct])
+        XCTAssertEqual(beforeCompleted.value, [.correct])
+        XCTAssertEqual(completed2.value, [1])
+        XCTAssertEqual(deferredCompleted.value, [.correct])
 
         subject = nil
 
-        XCTAssertEqual(started, 1)
-        XCTAssertEqual(stopped, 0)
+        XCTAssertEqual(started.value, 1)
+        XCTAssertEqual(stopped.value, 0)
 
         intSubject = nil
 
-        XCTAssertEqual(started, 1)
-        XCTAssertEqual(stopped, 1)
+        XCTAssertEqual(started.value, 1)
+        XCTAssertEqual(stopped.value, 1)
 
-        XCTAssertEqual(beforeCompleted, [.correct])
-        XCTAssertEqual(completed2, [1])
-        XCTAssertEqual(deferredCompleted, [.correct])
+        XCTAssertEqual(beforeCompleted.value, [.correct])
+        XCTAssertEqual(completed2.value, [1])
+        XCTAssertEqual(deferredCompleted.value, [.correct])
     }
 
     func test_strongify_both_on_other_threads() {
-        var started = 0
-        var stopped = 0
+        let started: SendableResult<Int> = .init(value: 0)
+        let stopped: SendableResult<Int> = .init(value: 0)
 
-        var beforeCompleted: [Value] = []
-        var completed2: [Int] = []
-        var deferredCompleted: [Value] = []
+        let beforeCompleted: SendableResult<[Value]> = .init(value: [])
+        let completed2: SendableResult<[Int]> = .init(value: [])
+        let deferredCompleted: SendableResult<[Value]> = .init(value: [])
 
         let expSubject = expectation(description: "subject")
         let deinitSubject = expectation(description: "deinitSubject")
-        var subject: DefferedTask<Value>! = .init { completion in
-            started += 1
+        var subject: DefferedTask<Value>! = .init { [started] completion in
+            started.value += 1
             completion(.correct)
             expSubject.fulfill()
-        } onDeinit: {
-            stopped += 1
+        } onDeinit: { [stopped] in
+            stopped.value += 1
             deinitSubject.fulfill()
         }
         .set(workQueue: .async(Queue.background))
@@ -89,11 +89,11 @@ final class DefferedTaskTests: XCTestCase {
         .flatMap { v in
             return v
         }
-        .beforeComplete { result in
-            beforeCompleted.append(result)
+        .beforeComplete { [beforeCompleted] result in
+            beforeCompleted.value.append(result)
         }
-        .afterComplete { result in
-            deferredCompleted.append(result)
+        .afterComplete { [deferredCompleted] result in
+            deferredCompleted.value.append(result)
         }
         .set(userInfo: "subject")
 
@@ -105,54 +105,54 @@ final class DefferedTaskTests: XCTestCase {
         .set(workQueue: .async(Queue.background))
         .set(completionQueue: .async(Queue.background))
 
-        intSubject.onComplete {
-            completed2.append($0)
+        intSubject.onComplete { [completed2] in
+            completed2.value.append($0)
             expIntSubject.fulfill()
         }
 
-        XCTAssertEqual(started, 0)
-        XCTAssertEqual(stopped, 0)
+        XCTAssertEqual(started.value, 0)
+        XCTAssertEqual(stopped.value, 0)
         wait(for: [expSubject, expIntSubject], timeout: Self.timeout)
 
-        XCTAssertEqual(started, 1)
-        XCTAssertEqual(stopped, 0)
+        XCTAssertEqual(started.value, 1)
+        XCTAssertEqual(stopped.value, 0)
 
-        XCTAssertEqual(beforeCompleted, [.correct])
-        XCTAssertEqual(completed2, [1])
-        XCTAssertEqual(deferredCompleted, [.correct])
+        XCTAssertEqual(beforeCompleted.value, [.correct])
+        XCTAssertEqual(completed2.value, [1])
+        XCTAssertEqual(deferredCompleted.value, [.correct])
 
         // rm sub task first
         intSubject = nil
 
-        XCTAssertEqual(started, 1)
-        XCTAssertEqual(stopped, 0)
+        XCTAssertEqual(started.value, 1)
+        XCTAssertEqual(stopped.value, 0)
 
         subject = nil
         wait(for: [deinitSubject], timeout: Self.timeout)
 
-        XCTAssertEqual(started, 1)
-        XCTAssertEqual(stopped, 1)
+        XCTAssertEqual(started.value, 1)
+        XCTAssertEqual(stopped.value, 1)
 
-        XCTAssertEqual(beforeCompleted, [.correct])
-        XCTAssertEqual(completed2, [1])
-        XCTAssertEqual(deferredCompleted, [.correct])
+        XCTAssertEqual(beforeCompleted.value, [.correct])
+        XCTAssertEqual(completed2.value, [1])
+        XCTAssertEqual(deferredCompleted.value, [.correct])
     }
 
     func test_behavior_unretaned_both_tasks() {
-        var started = 0
-        var stopped = 0
+        let started: SendableResult<Int> = .init(value: 0)
+        let stopped: SendableResult<Int> = .init(value: 0)
 
-        var beforeCompleted: [Value] = []
-        var completed2: [Int] = []
-        var deferredCompleted: [Value] = []
+        let beforeCompleted: SendableResult<[Value]> = .init(value: [])
+        let completed2: SendableResult<[Int]> = .init(value: [])
+        let deferredCompleted: SendableResult<[Value]> = .init(value: [])
 
         let expSubject = expectation(description: "subject")
         expSubject.isInverted = true
-        var subject: DefferedTask<Value>! = .init { completion in
-            started += 1
+        var subject: DefferedTask<Value>! = .init { [started] completion in
+            started.value += 1
             completion(.correct)
-        } onDeinit: {
-            stopped += 1
+        } onDeinit: { [stopped] in
+            stopped.value += 1
         }
         .weakify()
         .set(workQueue: .async(Queue.background))
@@ -160,11 +160,11 @@ final class DefferedTaskTests: XCTestCase {
         .flatMap { v in
             return v
         }
-        .beforeComplete { result in
-            beforeCompleted.append(result)
+        .beforeComplete { [beforeCompleted] result in
+            beforeCompleted.value.append(result)
         }
-        .afterComplete { result in
-            deferredCompleted.append(result)
+        .afterComplete { [deferredCompleted] result in
+            deferredCompleted.value.append(result)
             expSubject.fulfill()
         }
         .set(userInfo: "subject")
@@ -177,13 +177,13 @@ final class DefferedTaskTests: XCTestCase {
         .set(userInfo: "intSubject")
         .weakify()
 
-        intSubject.onComplete {
-            completed2.append($0)
+        intSubject.onComplete { [completed2] in
+            completed2.value.append($0)
             expIntSubject.fulfill()
         }
 
-        XCTAssertEqual(started, 0)
-        XCTAssertEqual(stopped, 0)
+        XCTAssertEqual(started.value, 0)
+        XCTAssertEqual(stopped.value, 0)
 
         // rm sub task first
         intSubject = nil
@@ -191,28 +191,28 @@ final class DefferedTaskTests: XCTestCase {
 
         wait(for: [expSubject, expIntSubject], timeout: Self.timeout)
 
-        XCTAssertEqual(started, 0)
-        XCTAssertEqual(stopped, 1)
+        XCTAssertEqual(started.value, 0)
+        XCTAssertEqual(stopped.value, 1)
 
-        XCTAssertEqual(beforeCompleted, [])
-        XCTAssertEqual(completed2, [])
-        XCTAssertEqual(deferredCompleted, [])
+        XCTAssertEqual(beforeCompleted.value, [])
+        XCTAssertEqual(completed2.value, [])
+        XCTAssertEqual(deferredCompleted.value, [])
     }
 
     func test_behavior_unretained_subject() {
-        var started = 0
-        var stopped = 0
+        let started: SendableResult<Int> = .init(value: 0)
+        let stopped: SendableResult<Int> = .init(value: 0)
 
-        var beforeCompleted: [Value] = []
-        var completed2: [Int] = []
-        var deferredCompleted: [Value] = []
+        let beforeCompleted: SendableResult<[Value]> = .init(value: [])
+        let completed2: SendableResult<[Int]> = .init(value: [])
+        let deferredCompleted: SendableResult<[Value]> = .init(value: [])
 
         let expSubject = expectation(description: "subject")
-        var subject: DefferedTask<Value>! = .init { completion in
-            started += 1
+        var subject: DefferedTask<Value>! = .init { [started] completion in
+            started.value += 1
             completion(.correct)
-        } onDeinit: {
-            stopped += 1
+        } onDeinit: { [stopped] in
+            stopped.value += 1
         }
         .weakify()
         .set(workQueue: .async(Queue.background))
@@ -220,11 +220,11 @@ final class DefferedTaskTests: XCTestCase {
         .flatMap { v in
             return v
         }
-        .beforeComplete { result in
-            beforeCompleted.append(result)
+        .beforeComplete { [beforeCompleted] result in
+            beforeCompleted.value.append(result)
         }
-        .afterComplete { result in
-            deferredCompleted.append(result)
+        .afterComplete { [deferredCompleted] result in
+            deferredCompleted.value.append(result)
             expSubject.fulfill()
         }
         .set(userInfo: "subject")
@@ -237,53 +237,53 @@ final class DefferedTaskTests: XCTestCase {
         .set(workQueue: .async(Queue.background))
         .set(completionQueue: .async(Queue.background))
 
-        intSubject.onComplete {
-            completed2.append($0)
+        XCTAssertEqual(started.value, 0)
+        XCTAssertEqual(stopped.value, 0)
+
+        intSubject.onComplete { [completed2] in
+            completed2.value.append($0)
             expIntSubject.fulfill()
         }
-
-        XCTAssertEqual(started, 0)
-        XCTAssertEqual(stopped, 0)
 
         // rm sub task first
         subject = nil
 
         wait(for: [expSubject, expIntSubject], timeout: Self.timeout)
 
-        XCTAssertEqual(started, 1)
-        XCTAssertEqual(stopped, 0)
+        XCTAssertEqual(started.value, 1)
+        XCTAssertEqual(stopped.value, 0)
 
-        XCTAssertEqual(beforeCompleted, [.correct])
-        XCTAssertEqual(completed2, [1])
-        XCTAssertEqual(deferredCompleted, [.correct])
+        XCTAssertEqual(beforeCompleted.value, [.correct])
+        XCTAssertEqual(completed2.value, [1])
+        XCTAssertEqual(deferredCompleted.value, [.correct])
     }
 
     func test_behavior_unretaned_subtask() {
-        var started = 0
-        var stopped = 0
+        let started: SendableResult<Int> = .init(value: 0)
+        let stopped: SendableResult<Int> = .init(value: 0)
 
-        var beforeCompleted: [Value] = []
-        var completed2: [Int] = []
-        var deferredCompleted: [Value] = []
+        let beforeCompleted: SendableResult<[Value]> = .init(value: [])
+        let completed2: SendableResult<[Int]> = .init(value: [])
+        let deferredCompleted: SendableResult<[Value]> = .init(value: [])
 
         let expSubject = expectation(description: "subject")
         expSubject.isInverted = true
-        let subject: DefferedTask<Value>! = .init { completion in
-            started += 1
+        let subject: DefferedTask<Value>! = .init { [started] completion in
+            started.value += 1
             completion(.correct)
-        } onDeinit: {
-            stopped += 1
+        } onDeinit: { [stopped] in
+            stopped.value += 1
         }
         .set(workQueue: .async(Queue.background))
         .set(completionQueue: .async(Queue.background))
         .flatMap { v in
             return v
         }
-        .beforeComplete { result in
-            beforeCompleted.append(result)
+        .beforeComplete { [beforeCompleted] result in
+            beforeCompleted.value.append(result)
         }
-        .afterComplete { result in
-            deferredCompleted.append(result)
+        .afterComplete { [deferredCompleted] result in
+            deferredCompleted.value.append(result)
             expSubject.fulfill()
         }
         .set(userInfo: "subject")
@@ -298,25 +298,25 @@ final class DefferedTaskTests: XCTestCase {
         .set(workQueue: .async(Queue.background))
         .set(completionQueue: .async(Queue.background))
 
-        intSubject.onComplete {
-            completed2.append($0)
+        intSubject.onComplete { [completed2] in
+            completed2.value.append($0)
             expIntSubject.fulfill()
         }
 
-        XCTAssertEqual(started, 0)
-        XCTAssertEqual(stopped, 0)
+        XCTAssertEqual(started.value, 0)
+        XCTAssertEqual(stopped.value, 0)
 
         // rm sub task first
         intSubject = nil
 
         wait(for: [expSubject, expIntSubject], timeout: Self.timeout)
 
-        XCTAssertEqual(started, 0)
-        XCTAssertEqual(stopped, 0)
+        XCTAssertEqual(started.value, 0)
+        XCTAssertEqual(stopped.value, 0)
 
-        XCTAssertEqual(beforeCompleted, [])
-        XCTAssertEqual(completed2, [])
-        XCTAssertEqual(deferredCompleted, [])
+        XCTAssertEqual(beforeCompleted.value, [])
+        XCTAssertEqual(completed2.value, [])
+        XCTAssertEqual(deferredCompleted.value, [])
     }
 
     func test_twice_onComplete() {
@@ -328,43 +328,43 @@ final class DefferedTaskTests: XCTestCase {
             assertionFailure("should never heppen")
         }
 
-        #if (os(macOS) || os(iOS) || os(visionOS)) && (arch(x86_64) || arch(arm64))
         XCTAssertThrowsAssertion {
             intSubject.onComplete { _ in
                 assertionFailure("should never heppen")
             }
         }
-        #endif
     }
 
     func test_init() {
-        var actual: Int?
+        let actual: SendableResult<Int?> = .init()
+
         let subject: DefferedTask<Int> = .init(result: 1)
-        subject.onComplete { result in
-            actual = result
+        subject.onComplete { [actual] result in
+            actual.value = result
         }
-        XCTAssertEqual(actual, 1)
+        XCTAssertEqual(actual.value, 1)
 
         let subject2: DefferedTask<Int> = .init(result: {
             return 2
         })
-        subject2.onComplete { result in
-            actual = result
+        subject2.onComplete { [actual] result in
+            actual.value = result
         }
-        XCTAssertEqual(actual, 2)
+        XCTAssertEqual(actual.value, 2)
     }
 
     func test_oneWay() {
-        var actual: Bool = false
+        let actual: SendableResult<Bool> = .init()
+
         DefferedTask<Int>(execute: { completion in
             completion(1)
-        }, onDeinit: {
-            actual = true
+        }, onDeinit: { [actual] in
+            actual.value = true
         }).oneWay()
-        XCTAssertTrue(actual)
+
+        XCTAssertTrue(actual.value ?? false)
     }
 
-    #if (os(macOS) || os(iOS) || os(visionOS)) && (arch(x86_64) || arch(arm64))
     func test_assertions() {
         let createSubject: () -> DefferedTask<Int> = {
             let intSubject: DefferedTask<Int> = .init(execute: { _ in
@@ -451,32 +451,31 @@ final class DefferedTaskTests: XCTestCase {
             _ = createSubject().set(userInfo: "some")
         }
     }
-    #endif
 
     func test_unwrap() {
-        var actual: Int?
+        let actual: SendableResult<Int?> = .init()
 
         DefferedTask<Int?>(result: nil)
             .unwrap(with: 1)
-            .onComplete { result in
-                actual = result
+            .onComplete { [actual] result in
+                actual.value = result
             }
-        XCTAssertEqual(actual, 1)
+        XCTAssertEqual(actual.value, 1)
 
         DefferedTask<Int?>(result: nil)
             .unwrap {
                 return 2
             }
-            .onComplete { result in
-                actual = result
+            .onComplete { [actual] result in
+                actual.value = result
             }
-        XCTAssertEqual(actual, 2)
+        XCTAssertEqual(actual.value, 2)
     }
 
     func test_queue() {
-        var actual: Int = -1
-        var isBackgroundThreadMap: Bool = false
-        var isMainThreadComplete: Bool = false
+        let actual: SendableResult<Int> = .init(value: -1)
+        let isBackgroundThreadMap: SendableResult<Bool> = .init(value: false)
+        let isMainThreadComplete: SendableResult<Bool> = .init(value: false)
 
         let expMap = expectation(description: "map")
         let expComplete = expectation(description: "complete")
@@ -484,26 +483,26 @@ final class DefferedTaskTests: XCTestCase {
             .set(workQueue: .async(Queue.background))
             .set(completionQueue: .async(Queue.main))
             .map { _ in
-                isBackgroundThreadMap = !Thread.isMainThread
+                isBackgroundThreadMap.value = !Thread.isMainThread
                 expMap.fulfill()
                 return 1
             }
             .onComplete { result in
-                isMainThreadComplete = Thread.isMainThread
-                actual = result
+                isMainThreadComplete.value = Thread.isMainThread
+                actual.value = result
                 expComplete.fulfill()
             }
         wait(for: [expMap, expComplete], timeout: Self.timeout)
 
-        XCTAssertEqual(actual, 1)
-        XCTAssertTrue(isBackgroundThreadMap)
-        XCTAssertTrue(isMainThreadComplete)
+        XCTAssertEqual(actual.value, 1)
+        XCTAssertTrue(isBackgroundThreadMap.value)
+        XCTAssertTrue(isMainThreadComplete.value)
     }
 
     func test_queue2() {
-        var actual: Int = -1
-        var isBackgroundThreadMap: Bool = false
-        var isBackgroundThreadComplete: Bool = false
+        let actual: SendableResult<Int> = .init(value: -1)
+        let isBackgroundThreadMap: SendableResult<Bool> = .init(value: false)
+        let isBackgroundThreadComplete: SendableResult<Bool> = .init(value: false)
 
         let expMap = expectation(description: "map")
         let expComplete = expectation(description: "complete")
@@ -511,19 +510,19 @@ final class DefferedTaskTests: XCTestCase {
             .set(workQueue: .async(Queue.background))
             .set(completionQueue: .async(Queue.background))
             .compactMap { _ in
-                isBackgroundThreadMap = !Thread.isMainThread
+                isBackgroundThreadMap.value = !Thread.isMainThread
                 expMap.fulfill()
                 return 1
             }
             .onComplete { result in
-                isBackgroundThreadComplete = !Thread.isMainThread
-                actual = result
+                isBackgroundThreadComplete.value = !Thread.isMainThread
+                actual.value = result
                 expComplete.fulfill()
             }
         wait(for: [expMap, expComplete], timeout: Self.timeout)
 
-        XCTAssertEqual(actual, 1)
-        XCTAssertTrue(isBackgroundThreadMap)
-        XCTAssertTrue(isBackgroundThreadComplete)
+        XCTAssertEqual(actual.value, 1)
+        XCTAssertTrue(isBackgroundThreadMap.value)
+        XCTAssertTrue(isBackgroundThreadComplete.value)
     }
 }
