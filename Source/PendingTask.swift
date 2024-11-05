@@ -9,7 +9,7 @@ public class PendingTask<ResultType: Sendable>: @unchecked Sendable {
     public typealias ServiceClosure = DefferedTask.TaskClosure
     public typealias Completion = DefferedTask.Completion
 
-    private var mutex: Mutexing = Mutex.pthread(.recursive)
+    private var mutex: Mutexing = AnyMutex.pthread(.recursive)
     private var cached: DefferedTask?
 
     private var beforeCallback: Completion?
@@ -28,7 +28,7 @@ public class PendingTask<ResultType> {
     public typealias ServiceClosure = DefferedTask.TaskClosure
     public typealias Completion = DefferedTask.Completion
 
-    private var mutex: Mutexing = Mutex.pthread(.recursive)
+    private var mutex: Mutexing = AnyMutex.pthread(.recursive)
     private var cached: DefferedTask?
 
     private var beforeCallback: Completion?

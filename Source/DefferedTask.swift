@@ -17,7 +17,7 @@ public final class DefferedTask<ResultType: Sendable>: @unchecked Sendable {
     private var completeCallback: Completion?
     private var afterCallback: Completion?
     private var options: MemoryOption = .selfRetained
-    private var mutex: Mutexing = Mutex.pthread(.recursive)
+    private var mutex: Mutexing = AnyMutex.pthread(.recursive)
     private var completionQueue: DelayedQueue = .absent
     private var workQueue: DelayedQueue = .absent
     private var strongyfy: DefferedTask?
@@ -47,7 +47,7 @@ public final class DefferedTask<ResultType> {
     private var completeCallback: Completion?
     private var afterCallback: Completion?
     private var options: MemoryOption = .selfRetained
-    private var mutex: Mutexing = Mutex.pthread(.recursive)
+    private var mutex: Mutexing = AnyMutex.pthread(.recursive)
     private var completionQueue: DelayedQueue = .absent
     private var workQueue: DelayedQueue = .absent
     private var strongyfy: DefferedTask?
