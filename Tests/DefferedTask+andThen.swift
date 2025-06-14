@@ -10,22 +10,23 @@ final class DefferedTask_andThen: XCTestCase {
         let subject: (Int) -> String? = { [unowned self] v in
             let actual: SendableResult<String?> = .init()
             let exp = expectation(description: "wait")
-            DefferedTask<Int>(result: v).andThen { v in
-                return .init { actual in
-                    Queue.main.async {
-                        actual("\(v)")
+            DefferedTask<Int>(result: v)
+                .andThen { v in
+                    return .init { actual in
+                        Queue.main.async {
+                            actual("\(v)")
+                        }
                     }
+                    .set(workQueue: .n.async(.background))
+                    .set(completionQueue: .n.async(.background))
                 }
                 .set(workQueue: .n.async(.background))
                 .set(completionQueue: .n.async(.background))
-            }
-            .set(workQueue: .n.async(.background))
-            .set(completionQueue: .n.async(.background))
-            // .weakify() <- 'andThen' makes 'strongify()'
-            .onComplete { result in
-                actual.value = result
-                exp.fulfill()
-            }
+                // .weakify() <- 'andThen' makes 'strongify()'
+                .onComplete { result in
+                    actual.value = result
+                    exp.fulfill()
+                }
             wait(for: [exp], timeout: 1)
             return actual.value
         }
@@ -41,7 +42,8 @@ final class DefferedTask_andThen: XCTestCase {
 
             let exp = expectation(description: "wait")
             exp.isInverted = true
-            DefferedTask<Int>(result: v).weakify()
+            DefferedTask<Int>(result: v)
+                .weakify()
                 .andThen { v in
                     return .init { actual in
                         Queue.main.async {

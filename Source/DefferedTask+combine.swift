@@ -54,6 +54,7 @@ public extension DefferedTask {
             case (.success(let a), .success(let b)):
                 let result: (OriginalResult, OtherResult) = (a, b)
                 return .success(result)
+
             case (_, .failure(let a)),
                  (.failure(let a), _):
                 return .failure(a)
@@ -100,6 +101,7 @@ public extension DefferedTask {
             case (.success(let a), .success(let b)):
                 let result: (OriginalResult, OtherResult) = (a, b)
                 return .success(result)
+
             case (_, .failure(let a)),
                  (.failure(let a), _):
                 return .failure(a)

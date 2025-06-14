@@ -9,7 +9,7 @@ public class PendingTask<ResultType: Sendable>: @unchecked Sendable {
     public typealias ServiceClosure = DefferedTask.TaskClosure
     public typealias Completion = DefferedTask.Completion
 
-    private var mutex: Mutexing = AnyMutex.pthread(.recursive)
+    private var mutex: Locking = AnyLock.pthread(.recursive)
     private var cached: DefferedTask?
 
     private var beforeCallback: Completion?
@@ -28,7 +28,7 @@ public class PendingTask<ResultType> {
     public typealias ServiceClosure = DefferedTask.TaskClosure
     public typealias Completion = DefferedTask.Completion
 
-    private var mutex: Mutexing = AnyMutex.pthread(.recursive)
+    private var mutex: Locking = AnyLock.pthread(.recursive)
     private var cached: DefferedTask?
 
     private var beforeCallback: Completion?
@@ -53,7 +53,7 @@ public extension PendingTask {
     }
 
     func current(_ closure: () -> DefferedTask) -> DefferedTask {
-        return mutex.sync {
+        return mutex.syncUnchecked {
             let loacalCached: DefferedTask = cached ?? closure()
             return .init(execute: { [weak self, loacalCached] actual in
                 guard let self else {
@@ -78,11 +78,9 @@ public extension PendingTask {
                         .assign(to: &self.cached)
                         .weakify()
                         .onComplete { [weak self] result in
-                            self?.mutex.sync {
+                            let cachedCallback = self?.mutex.syncUnchecked {
                                 self?.cached = nil
-                            }
 
-                            let cachedCallback = self?.mutex.sync {
                                 let originalCallback = self?.cachedCallback
                                 self?.cachedCallback = nil
                                 return originalCallback

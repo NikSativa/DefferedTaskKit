@@ -17,7 +17,7 @@ public final class DefferedTask<ResultType: Sendable>: @unchecked Sendable {
     private var completeCallback: Completion?
     private var afterCallback: Completion?
     private var options: MemoryOption = .selfRetained
-    private var mutex: Mutexing = AnyMutex.pthread(.recursive)
+    private var mutex: Locking = AnyLock.pthread(.recursive)
     private var completionQueue: DelayedQueue = .absent
     private var workQueue: DelayedQueue = .absent
     private var strongyfy: DefferedTask?
@@ -47,7 +47,7 @@ public final class DefferedTask<ResultType> {
     private var completeCallback: Completion?
     private var afterCallback: Completion?
     private var options: MemoryOption = .selfRetained
-    private var mutex: Mutexing = AnyMutex.pthread(.recursive)
+    private var mutex: Locking = AnyLock.pthread(.recursive)
     private var completionQueue: DelayedQueue = .absent
     private var workQueue: DelayedQueue = .absent
     private var strongyfy: DefferedTask?
@@ -81,6 +81,7 @@ public extension DefferedTask {
             guard let self else {
                 return
             }
+
             strongyfy = nil
 
             callbacks.before?(result)
@@ -108,10 +109,12 @@ public extension DefferedTask {
             guard let self else {
                 return
             }
+
             work { [weak self] in
                 guard let self else {
                     return
                 }
+
                 complete($0)
             }
         }
@@ -400,7 +403,7 @@ public extension DefferedTask {
 
     func set(userInfo value: Any) -> Self {
         assert(!completed, "you can't change configuration after `onComplete`")
-        mutex.sync {
+        mutex.syncUnchecked {
             userInfo = value
         }
         return self
