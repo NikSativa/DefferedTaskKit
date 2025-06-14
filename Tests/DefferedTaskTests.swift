@@ -390,15 +390,19 @@ final class DefferedTaskTests: XCTestCase {
         }
 
         XCTAssertThrowsAssertion {
-            _ = createSubject().flatMap { _ in
-                return "str"
-            }.flatMapVoid()
+            _ = createSubject()
+                .flatMap { _ in
+                    return "str"
+                }
+                .flatMapVoid()
         }
 
         XCTAssertThrowsAssertion {
-            _ = createSubject().compactMap { _ in
-                return "str"
-            }.flatMapVoid()
+            _ = createSubject()
+                .compactMap { _ in
+                    return "str"
+                }
+                .flatMapVoid()
         }
 
         XCTAssertThrowsAssertion {

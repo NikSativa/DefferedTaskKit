@@ -13,11 +13,13 @@ let package = Package(
         .watchOS(.v6)
     ],
     products: [
-        .library(name: "DefferedTaskKit", targets: ["DefferedTaskKit"])
+        .library(name: "DefferedTaskKit", targets: ["DefferedTaskKit"]),
+        .library(name: "DefferedTaskKitStatic", type: .static, targets: ["DefferedTaskKit"]),
+        .library(name: "DefferedTaskKitDynamic", type: .dynamic, targets: ["DefferedTaskKit"])
     ],
     dependencies: [
-        .package(url: "https://github.com/NikSativa/Threading.git", .upToNextMinor(from: "2.1.1")),
-        .package(url: "https://github.com/NikSativa/SpryKit.git", .upToNextMinor(from: "3.0.2"))
+        .package(url: "https://github.com/NikSativa/Threading.git", from: "2.2.0"),
+        .package(url: "https://github.com/NikSativa/SpryKit.git", from: "3.0.4")
     ],
     targets: [
         .target(name: "DefferedTaskKit",
