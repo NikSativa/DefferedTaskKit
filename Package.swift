@@ -18,8 +18,8 @@ let package = Package(
         .library(name: "DefferedTaskKitDynamic", type: .dynamic, targets: ["DefferedTaskKit"])
     ],
     dependencies: [
-        .package(url: "https://github.com/NikSativa/Threading.git", from: "2.2.1"),
-        .package(url: "https://github.com/NikSativa/SpryKit.git", from: "3.1.0")
+        .package(url: "https://github.com/NikSativa/Threading.git", from: "2.3.0"),
+        .package(url: "https://github.com/NikSativa/SpryKit.git", from: "3.2.0")
     ],
     targets: [
         .target(name: "DefferedTaskKit",
