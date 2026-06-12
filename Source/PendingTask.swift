@@ -2,8 +2,6 @@ import Foundation
 import Threading
 
 public typealias PendingResult<Response, Error: Swift.Error> = PendingTask<Result<Response, Error>>
-
-#if swift(>=6.0)
 public class PendingTask<ResultType: Sendable>: @unchecked Sendable {
     public typealias DefferedTask = DefferedTaskKit.DefferedTask<ResultType>
     public typealias ServiceClosure = DefferedTask.TaskClosure
@@ -22,26 +20,6 @@ public class PendingTask<ResultType: Sendable>: @unchecked Sendable {
 
     public init() {}
 }
-#else
-public class PendingTask<ResultType> {
-    public typealias DefferedTask = DefferedTaskKit.DefferedTask<ResultType>
-    public typealias ServiceClosure = DefferedTask.TaskClosure
-    public typealias Completion = DefferedTask.Completion
-
-    private var mutex: Locking = AnyLock.pthread(.recursive)
-    private var cached: DefferedTask?
-
-    private var beforeCallback: Completion?
-    private var cachedCallback: Completion?
-    private var afterCallback: Completion?
-
-    public var isPending: Bool {
-        return cached != nil
-    }
-
-    public init() {}
-}
-#endif
 
 public extension PendingTask {
     func current(_ closure: @escaping ServiceClosure) -> DefferedTask {

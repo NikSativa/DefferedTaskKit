@@ -41,13 +41,6 @@ public func sync<T>(_ callback: DefferedTask<T>,
 
     return result.value
 }
-
-#if swift(>=6.0)
 private final class ResultHolder<T>: @unchecked Sendable {
     var value: T!
 }
-#else
-private final class ResultHolder<T> {
-    var value: T!
-}
-#endif

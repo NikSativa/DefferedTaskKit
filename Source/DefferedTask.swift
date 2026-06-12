@@ -2,8 +2,6 @@ import Foundation
 import Threading
 
 public typealias DefferedResult<T, E: Error> = DefferedTask<Result<T, E>>
-
-#if swift(>=6.0)
 public final class DefferedTask<ResultType: Sendable>: @unchecked Sendable {
     public typealias Completion = @Sendable (_ result: ResultType) -> Void
     public typealias TaskClosure = @Sendable (_ completion: @escaping Completion) -> Void
@@ -33,37 +31,6 @@ public final class DefferedTask<ResultType: Sendable>: @unchecked Sendable {
         cancel()
     }
 }
-#else
-public final class DefferedTask<ResultType> {
-    public typealias Completion = (_ result: ResultType) -> Void
-    public typealias TaskClosure = (_ completion: @escaping Completion) -> Void
-    public typealias DeinitClosure = () -> Void
-
-    public var userInfo: Any?
-
-    private let work: TaskClosure
-    private let cancel: DeinitClosure
-    private var beforeCallback: Completion?
-    private var completeCallback: Completion?
-    private var afterCallback: Completion?
-    private var options: MemoryOption = .selfRetained
-    private var mutex: Locking = AnyLock.pthread(.recursive)
-    private var completionQueue: DelayedQueue = .absent
-    private var workQueue: DelayedQueue = .absent
-    private var strongyfy: DefferedTask?
-    private var completed: Bool = false
-
-    public required init(execute workItem: @escaping TaskClosure,
-                         onDeinit cancelation: @escaping DeinitClosure = {}) {
-        self.work = workItem
-        self.cancel = cancelation
-    }
-
-    deinit {
-        cancel()
-    }
-}
-#endif
 
 public extension DefferedTask {
     private func complete(_ result: ResultType) {
@@ -125,8 +92,6 @@ public extension DefferedTask {
 
 public extension DefferedTask {
     // MARK: - convenience init
-
-    #if swift(>=6.0)
     convenience init(result: @escaping @Sendable () -> ResultType) {
         self.init(execute: { $0(result()) })
     }
@@ -134,15 +99,6 @@ public extension DefferedTask {
     convenience init(result: @escaping @autoclosure @Sendable () -> ResultType) {
         self.init(execute: { $0(result()) })
     }
-    #else
-    convenience init(result: @escaping () -> ResultType) {
-        self.init(execute: { $0(result()) })
-    }
-
-    convenience init(result: @escaping @autoclosure () -> ResultType) {
-        self.init(execute: { $0(result()) })
-    }
-    #endif
 
     // MARK: - oneWay
 
@@ -152,8 +108,6 @@ public extension DefferedTask {
     }
 
     // MARK: - map
-
-    #if swift(>=6.0)
     func map(_ mapper: @escaping @Sendable (ResultType) -> ResultType) -> DefferedTask<ResultType> {
         return flatMap { result in
             return mapper(result)
@@ -203,57 +157,6 @@ public extension DefferedTask {
 
         return copy
     }
-    #else
-    func map(_ mapper: @escaping (ResultType) -> ResultType) -> DefferedTask<ResultType> {
-        return flatMap { result in
-            return mapper(result)
-        }
-    }
-
-    func compactMap<NewResultType>(_ mapper: @escaping (ResultType?) -> NewResultType) -> DefferedTask<NewResultType> {
-        return flatMap { result in
-            return mapper(result)
-        }
-    }
-
-    func flatMap<NewResultType>(_ mapper: @escaping (ResultType) -> NewResultType) -> DefferedTask<NewResultType> {
-        assert(!completed, "you can't change configuration after `onComplete`")
-        mutex.sync {
-            completed = true
-            options = .weakness
-            strongyfy = nil
-        }
-
-        let copy = DefferedTask<NewResultType>(execute: { [self] actual in
-            mutex.sync {
-                completed = false
-            }
-
-            onComplete { [weak self, actual] result in
-                guard let self else {
-                    return
-                }
-
-                workQueue.fire { [weak self, actual] in
-                    guard let self else {
-                        return
-                    }
-
-                    let new = mapper(result)
-                    completionQueue.fire { [weak self, actual] in
-                        guard let _ = self else {
-                            return
-                        }
-
-                        actual(new)
-                    }
-                }
-            }
-        })
-
-        return copy
-    }
-    #endif
 
     // MARK: - before
 
@@ -286,8 +189,6 @@ public extension DefferedTask {
     }
 
     // MARK: - unwrap
-
-    #if swift(>=6.0)
     func unwrap<Response>(with value: @escaping @autoclosure @Sendable () -> Response) -> DefferedTask<Response>
     where ResultType == Response? {
         return flatMap {
@@ -301,21 +202,6 @@ public extension DefferedTask {
             return $0 ?? value()
         }
     }
-    #else
-    func unwrap<Response>(with value: @escaping @autoclosure () -> Response) -> DefferedTask<Response>
-    where ResultType == Response? {
-        return flatMap {
-            return $0 ?? value()
-        }
-    }
-
-    func unwrap<Response>(_ value: @escaping () -> Response) -> DefferedTask<Response>
-    where ResultType == Response? {
-        return flatMap {
-            return $0 ?? value()
-        }
-    }
-    #endif
 
     // MARK: - assign
 
@@ -417,18 +303,9 @@ private extension DefferedTask {
         case selfRetained
         case weakness
     }
-
-    #if swift(>=6.0)
     struct Callbacks: @unchecked Sendable {
         let before: Completion?
         let complete: Completion?
         let deferred: Completion?
     }
-    #else
-    struct Callbacks {
-        let before: Completion?
-        let complete: Completion?
-        let deferred: Completion?
-    }
-    #endif
 }
