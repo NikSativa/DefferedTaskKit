@@ -146,6 +146,12 @@ final class DefferedTaskTests: XCTestCase {
         let completed2: SendableResult<[Int]> = .init(value: [])
         let deferredCompleted: SendableResult<[Value]> = .init(value: [])
 
+        let heldQueue: Queue = .custom(label: "test_behavior_unretaned_both_tasks", attributes: .serial)
+        let releaseHeldQueue = DispatchSemaphore(value: 0)
+        heldQueue.async {
+            releaseHeldQueue.wait()
+        }
+
         let expSubject = expectation(description: "subject")
         expSubject.isInverted = true
         var subject: DefferedTask<Value>! = .init { [started] completion in
@@ -155,7 +161,7 @@ final class DefferedTaskTests: XCTestCase {
             stopped.value += 1
         }
         .weakify()
-        .set(workQueue: .async(Queue.background))
+        .set(workQueue: .async(heldQueue))
         .set(completionQueue: .async(Queue.background))
         .flatMap { v in
             return v
@@ -188,6 +194,7 @@ final class DefferedTaskTests: XCTestCase {
         // rm sub task first
         intSubject = nil
         subject = nil
+        releaseHeldQueue.signal()
 
         wait(for: [expSubject, expIntSubject], timeout: Self.timeout)
 
@@ -288,6 +295,12 @@ final class DefferedTaskTests: XCTestCase {
         }
         .set(userInfo: "subject")
 
+        let heldQueue: Queue = .custom(label: "test_behavior_unretaned_subtask", attributes: .serial)
+        let releaseHeldQueue = DispatchSemaphore(value: 0)
+        heldQueue.async {
+            releaseHeldQueue.wait()
+        }
+
         let expIntSubject = expectation(description: "intSubject")
         expIntSubject.isInverted = true
         var intSubject: DefferedTask<Int>! = subject.flatMap { _ in
@@ -295,7 +308,7 @@ final class DefferedTaskTests: XCTestCase {
         }
         .set(userInfo: "intSubject")
         .weakify()
-        .set(workQueue: .async(Queue.background))
+        .set(workQueue: .async(heldQueue))
         .set(completionQueue: .async(Queue.background))
 
         intSubject.onComplete { [completed2] in
@@ -308,6 +321,7 @@ final class DefferedTaskTests: XCTestCase {
 
         // rm sub task first
         intSubject = nil
+        releaseHeldQueue.signal()
 
         wait(for: [expSubject, expIntSubject], timeout: Self.timeout)
 
